@@ -17,5 +17,6 @@ namespace ASETAssignment.CarPark
     {
         public bool Premium { get; set; }
         public SpaceEnumeration State { get; set; }
+        public int CustomerId { get; set; }
     }
 }
