@@ -76,6 +76,7 @@ namespace ASETAssignment
         /// </summary>
         /// <param name="conferenceKey">Conference name lookup key</param>
         /// <returns>The amount of spaces that are not NotInUse</returns>
+        [Pure]
         public abstract int CheckAvailability(string conferenceKey);
 
         /// <summary>
@@ -300,6 +301,7 @@ namespace ASETAssignment
             // The index is out of range, the conference does not exist, or the space is not in use
             Contract.EnsuresOnThrow<CarParkException>(index < 0 ||
                                                       index >= MaxSize ||
+                                                      conferenceKey == null ||
                                                       !Conferences.ContainsKey(conferenceKey) ||
                                                       Conferences[conferenceKey].Spaces[index].State == SpaceEnumeration.NotInUse);
             #endregion
@@ -367,6 +369,7 @@ namespace ASETAssignment
             // The index is out of range, the space has been reserved by another customer, the space has already been purchased (by any customer), or the space is not in use
             Contract.EnsuresOnThrow<CarParkException>(index < 0 ||
                                                       index >= MaxSize ||
+                                                      conferenceKey == null ||
                                                       !Conferences.ContainsKey(conferenceKey) ||
                                                       (Conferences[conferenceKey].Spaces[index].State == SpaceEnumeration.Reserved &&
                                                       Conferences[conferenceKey].Spaces[index].CustomerId != customer) ||
@@ -444,7 +447,7 @@ namespace ASETAssignment
             #region Exceptions
 
             // If we throw in this method, the conference does not exist
-            Contract.EnsuresOnThrow<CarParkException>(!Conferences.ContainsKey(conferenceKey));
+            Contract.EnsuresOnThrow<CarParkException>(conferenceKey == null || !Conferences.ContainsKey(conferenceKey));
             #endregion
 
             #endregion
@@ -493,6 +496,7 @@ namespace ASETAssignment
             // Index not in range or conference does not exist
             Contract.EnsuresOnThrow<CarParkException>(index < 0 ||
                                                       index >= MaxSize ||
+                                                      conferenceKey == null ||
                                                       !Conferences.ContainsKey(conferenceKey));
 
             // State not changed
@@ -506,6 +510,39 @@ namespace ASETAssignment
 
             return default(int);
         }
+
+        /*
+
+            
+            And again with the weirdness.
+
+            We could, and arguably as it unfortunately needs to be public should, include some Contracts for the CancelReservationsPostConditions method.
+            However, once again due to CodeContracts bugs, the Contract.OldValue method is not working correctly. The contract could be implemented in a different method again, howwever this would cause the same problem for that method
+
+
+        */
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="current"></param>
+        /// <param name="old"></param>
+        /// <returns></returns>
+        [Pure]
+        public override bool CancelReservationPostConditions(IReadOnlyDictionary<string, Conference> current,
+            IReadOnlyDictionary<string, Conference> old)
+        {
+
+            // Both of these contracts should check that all conferences are equal, if OldValue did not return null
+
+            //Contract.Ensures(Contract.ForAll(0, Conferences.Count,
+            //    i => Conferences.Values.ToArray()[i].Equals(Contract.OldValue(Conferences.Values.ToArray()[i]))));
+
+            //Contract.Ensures(Contract.ForAll(Conferences, c => c.Value.Equals(Contract.OldValue(c.Value))));
+
+            return default(bool);
+        }
+
     }
 
     /// <inheritdoc />
@@ -541,16 +578,24 @@ namespace ASETAssignment
     /// </summary>
     public enum SpaceEnumeration
     {
-        // Space is free
+        /// <summary>
+        /// Space is free
+        /// </summary>
         Free,
-
-        // Space is reserved
+        
+        /// <summary>
+        /// Space is reserved
+        /// </summary>
         Reserved,
-
-        // Space has been purchased
+        
+        /// <summary>
+        /// Space has been purchased
+        /// </summary>
         Purchased,
-
-        // Space is not in use
+        
+        /// <summary>
+        /// Space is not in use
+        /// </summary>
         NotInUse
     }
 
@@ -858,10 +903,7 @@ namespace ASETAssignment
 
             // Conference names and premiumSpaces must be equal length
             Contract.Requires(conferenceNames.Count() == premiumSpaces.Count());
-
-            // notInUseSpaces and premiumSpaces must be equal length
-            Contract.Requires(notInUseSpaces.Count() == premiumSpaces.Count());
-
+            
             // All the notInUseSpaces entries must be greater than 0
             Contract.Requires(notInUseSpaces.All(i => i >= 0));
 
@@ -1074,6 +1116,12 @@ namespace ASETAssignment
         public override bool BuySpace(string conferenceKey, int index, int customer)
         {
             #region Implementation
+
+            if (conferenceKey == null)
+            {
+                throw new CarParkException("Conference cannot be null");
+            }
+
             // Check the index is in range
             if (index < 0 || index >= maxSize)
             {
@@ -1133,7 +1181,12 @@ namespace ASETAssignment
                 throw new CarParkException("Space index out of range");
             }
 
-            // Check the conference exists
+            if (conferenceKey == null)
+            {
+                throw new CarParkException("Conference key null");
+            }
+
+            
             if (!conferences.ContainsKey(conferenceKey))
             {
                 throw new CarParkException("Conference does not exist");
@@ -1200,6 +1253,11 @@ namespace ASETAssignment
         {
             #region Implementation
 
+            if (conferenceKey == null)
+            {
+                throw new CarParkException("Conference key null");
+            }
+
             if (!conferences.ContainsKey(conferenceKey))
             {
                 throw new CarParkException("Conference does not exist");
@@ -1228,6 +1286,11 @@ namespace ASETAssignment
                 throw new CarParkException("Space index out of range");
             }
 
+            if (conferenceKey == null)
+            {
+                throw new CarParkException("Conference key null");
+            }
+
             if (!conferences.ContainsKey(conferenceKey))
             {
                 throw new CarParkException("Conference does not exist");
@@ -1250,23 +1313,23 @@ namespace ASETAssignment
         static void Main(string[] args)
         {
             Console.WriteLine("Testing invalid parameters...");
-
+            Console.WriteLine();
             CheckInvalidParameterSetups();
-
+            Console.WriteLine();
             Console.WriteLine("Tests passed");
-
+            Console.WriteLine();
             Console.WriteLine("Testing invalid car park setups...");
-
+            Console.WriteLine();
             CheckInvalidCarParkSetups();
-
+            Console.WriteLine();
             Console.WriteLine("Tests passed");
-
+            Console.WriteLine();
             Console.WriteLine("Testing valid setups...");
-
+            Console.WriteLine();
             CheckValidSetups();
-
+            Console.WriteLine();
             Console.WriteLine("Tests passed");
-
+            Console.WriteLine();
             Console.WriteLine("Tests completed");
             Console.ReadLine();
         }
@@ -1287,16 +1350,45 @@ namespace ASETAssignment
 
             CarPark carPark;
 
+            // Catch maxsize 0
+            try
+            {
+                carPark = new CarPark(0, CannotBeReserved, conferences, notInUseSpaces, premiumSpaces);
+                Console.WriteLine("Test Failed, Contract did not throw exception when maxsize is 0");
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message == "Precondition failed: maxSize > 0")
+                {
+                    Console.WriteLine("Test Passed, Contract threw exception when maxsize is 0");
+                }
+            }
+
+            // Catch conference null
+            try
+            {
+                carPark = new CarPark(MaxSize, CannotBeReserved, null, notInUseSpaces, premiumSpaces);
+                Console.WriteLine("Test Failed, Contract did not throw exception when conferences null");
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message == "Precondition failed: conferenceNames != null")
+                {
+                    Console.WriteLine("Test Passed, Contract threw exception when conference names null");
+                }
+            }
+
             // Catch no conferences setup
             try
             {
                 carPark = new CarPark(MaxSize, CannotBeReserved, conferences, notInUseSpaces, premiumSpaces);
+                Console.WriteLine("Test Failed, Contract did not throw exception when conference names blank");
             }
             catch (Exception ex)
             {
-                if (ex.Message != "Precondition failed: conferenceNames.Any()")
+                if (ex.Message == "Precondition failed: conferenceNames.Any()")
                 {
-                    Console.WriteLine("Contract did not throw error when conference names blank");
+                    Console.WriteLine("Test Passed, Contract threw exception when conference names blank");
                 }
             }
 
@@ -1306,12 +1398,13 @@ namespace ASETAssignment
             try
             {
                 carPark = new CarPark(MaxSize, CannotBeReserved, conferences, notInUseSpaces, premiumSpaces);
+                Console.WriteLine("Test Failed, Contract did not throw exception when conference names length not equal to not in use spaces length");
             }
             catch (Exception ex)
             {
-                if (ex.Message != "Precondition failed: conferenceNames.Count() == notInUseSpaces.Count()")
+                if (ex.Message == "Precondition failed: conferenceNames.Count() == notInUseSpaces.Count()")
                 {
-                    Console.WriteLine("Contract did not throw error when conference names length not equal to not in use spaces length");
+                    Console.WriteLine("Test Passed, Contract threw exception when conference names length not equal to not in use spaces length");
                 }
             }
 
@@ -1321,12 +1414,13 @@ namespace ASETAssignment
             try
             {
                 carPark = new CarPark(MaxSize, CannotBeReserved, conferences, notInUseSpaces, premiumSpaces);
+                Console.WriteLine("Contract did not throw exception when conference names length not equal to premium spaces length");
             }
             catch (Exception ex)
             {
-                if (ex.Message != "Precondition failed: conferenceNames.Count() == premiumSpaces.Count()")
+                if (ex.Message == "Precondition failed: conferenceNames.Count() == premiumSpaces.Count()")
                 {
-                    Console.WriteLine("Contract did not throw error when conference names length not equal to premium spaces length");
+                    Console.WriteLine("Test Passed, Contract threw exception when conference names length not equal to premium spaces length");
                 }
             }
 
@@ -1365,12 +1459,13 @@ namespace ASETAssignment
             try
             {
                 carPark = new CarPark(MaxSize, CannotBeReserved, conferences, notInUseSpaces, premiumSpaces);
+                Console.WriteLine("Test Failed, Contract did not throw exception when not enough spaces are free (too many premium)");
             }
             catch (Exception ex)
             {
-                if (ex.Message != "Precondition failed: Contract.ForAll(0, notInUseSpaces.Count(), i => notInUseSpaces[i] + premiumSpaces[i] <= maxSize - cannotBeReserved)")
+                if (ex.Message == "Precondition failed: Contract.ForAll(0, notInUseSpaces.Count(), i => notInUseSpaces[i] + premiumSpaces[i] <= maxSize - cannotBeReserved)")
                 {
-                    Console.WriteLine("Contract did not throw error when not enough spaces are free (too many premium)");
+                    Console.WriteLine("Test Passed, Contract threw exception when not enough spaces were free (too many premium)");
                 }
             }
 
@@ -1393,12 +1488,13 @@ namespace ASETAssignment
             try
             {
                 carPark = new CarPark(MaxSize, CannotBeReserved, conferences, notInUseSpaces, premiumSpaces);
+                Console.WriteLine("Contract did not throw exception when not enough spaces are free (too many not in use)");
             }
             catch (Exception ex)
             {
-                if (ex.Message != "Precondition failed: Contract.ForAll(0, notInUseSpaces.Count(), i => notInUseSpaces[i] + premiumSpaces[i] <= maxSize - cannotBeReserved)")
+                if (ex.Message == "Precondition failed: Contract.ForAll(0, notInUseSpaces.Count(), i => notInUseSpaces[i] + premiumSpaces[i] <= maxSize - cannotBeReserved)")
                 {
-                    Console.WriteLine("Contract did not throw error when not enough spaces are free (too many not in use)");
+                    Console.WriteLine("Test Passed, Contract threw exception when not enough spaces were free (too many not in use)");
                 }
             }
         }
@@ -1431,29 +1527,46 @@ namespace ASETAssignment
             try
             {
                 #region ReserveSpace tests
+                Console.WriteLine("Reserve Space tests");
 
                 // Customer should be able to book the space
                 if (!carPark.ReserveSpace("Conference 1", 2, 1))
                 {
-                    Console.WriteLine("Test failed, customer could not reserve space");
+                    Console.WriteLine("Test Failed, customer could not reserve space");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, customer could reserve space");
                 }
 
                 // Should return true as customer has already reserved the space
                 if (!carPark.ReserveSpace("Conference 1", 2, 1))
                 {
-                    Console.WriteLine("Test failed, returned false when customer reserved space twice");
+                    Console.WriteLine("Test Failed, returned false when customer reserved space twice");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, returned true when customer reserved space twice");
                 }
 
                 // Should return false as a different customer cannot reserve the same space
                 if (carPark.ReserveSpace("Conference 1", 2, 2))
                 {
-                    Console.WriteLine("Test failed, customer reserved space that another has already reserved");
+                    Console.WriteLine("Test Failed, customer reserved space that another has already reserved");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, customer could not reserve space that another has already reserved");
                 }
 
                 // Customer should be able to book a different space
                 if (!carPark.ReserveSpace("Conference 1", 3, 2))
                 {
-                    Console.WriteLine("Test failed, customer could not reserve a different space");
+                    Console.WriteLine("Test Failed, customer could not reserve a different space");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, customer could reserve a different space");
                 }
 
                 // Customer should not be able to reserve a space that is not in use
@@ -1465,6 +1578,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, customer could not reserve a not in use space");
                 }
 
                 // Customer should not be able to reserve a space that is premium
@@ -1476,8 +1590,21 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, customer could not reserve a premium space");
                 }
 
+                // Failure case - null conference
+                try
+                {
+                    carPark.ReserveSpace(null, 0, 1);
+                    Console.WriteLine("Test failed, did not throw when conference null");
+                }
+                catch (CarParkException ex)
+                {
+                    // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, conference null");
+                }
+                
                 // Failure case - should not be able to reserve a space for a conference that does not exist
                 try
                 {
@@ -1487,6 +1614,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, conference does not exist");
                 }
 
                 // Failure case - should not be able to reserve a space with index negative
@@ -1498,6 +1626,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, negative index");
                 }
 
                 // Failure case - should not be able to reserve a space with index boundary out of range
@@ -1509,6 +1638,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, boundary out of range index");
                 }
 
                 // Failure case - should not be able to reserve a space with index out of range
@@ -1520,15 +1650,23 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, out of range index");
                 }
+
+                Console.WriteLine();
                 #endregion
 
                 #region BuySpace tests
+                Console.WriteLine("BuySpace tests");
 
                 // Customer should be able to buy a space they have reserved
                 if (!carPark.BuySpace("Conference 1", 2, 1))
                 {
                     Console.WriteLine("Test failed, customer could not buy space they have previously reserved");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, customer could buy a space they have previously reserved");
                 }
 
                 // Customer should be able to buy a space they have already bought
@@ -1536,17 +1674,29 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, returned false when customer bought a space they already own");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, return true when customer bought a space they already own");
+                }
 
                 // Should return false as a different customer cannot buy an already bought space
                 if (carPark.BuySpace("Conference 1", 2, 2))
                 {
                     Console.WriteLine("Test failed, customer bought a space already bought by another");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, customer could not buy a space already bought by another");
+                }
 
                 // Should return false as a different customer cannot buy a space reserved by another
                 if (carPark.BuySpace("Conference 1", 3, 1))
                 {
                     Console.WriteLine("Test failed, customer bought a space already reserved by another");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, customer could not buy a space already reserved by another");
                 }
 
                 // Customer should not be able to buy a not in use space
@@ -1558,6 +1708,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, customer could not buy a space that is not in use");
                 }
 
                 // Customer should be able to buy a space that is currently free
@@ -1565,11 +1716,31 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, customer could not buy a space that is currently free");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, customer could buy a space that is currently free");
+                }
 
                 // Customer should be able to buy a premium space
                 if (!carPark.BuySpace("Conference 1", 1, 1))
                 {
                     Console.WriteLine("Test failed, customer could not buy a premium space");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, customer could buy a premium space");
+                }
+
+                // Failure case - should not be able to buy a space for a null conference
+                try
+                {
+                    carPark.BuySpace(null, 0, 1);
+                    Console.WriteLine("Test failed, did not throw when conference null");
+                }
+                catch (CarParkException ex)
+                {
+                    // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, conference null");
                 }
 
                 // Failure case - should not be able to buy a space for a conference that does not exist
@@ -1581,6 +1752,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, conference does not exist");
                 }
 
                 // Failure case - should not be able to buy a space with index negative
@@ -1592,6 +1764,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, negative index");
                 }
 
                 // Failure case - should not be able to buy a space with index boundary out of range
@@ -1603,6 +1776,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, index boundary out of range");
                 }
 
                 // Failure case - should not be able to buy a space with index out of range
@@ -1614,10 +1788,14 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, index out of range");
                 }
+
+                Console.WriteLine();
                 #endregion
 
                 #region ReturnSpace tests
+                Console.WriteLine("ReturnSpace tests");
 
                 // Customer should not be able to return a space bought by another customer
                 try
@@ -1628,12 +1806,14 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, customer could not return a space bought by another");
                 }
 
                 // Customer should be able to return a space reserved by themselves
                 try
                 {
                     carPark.ReturnSpace("Conference 1", 3, 2);
+                    Console.WriteLine("Test Passed, customer can return space reserved by themselves");
                 }
                 catch (CarParkException ex)
                 {
@@ -1649,6 +1829,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, customer could not return a space that is not in use");
                 }
 
                 // Customer should not be able to return a space that has been bought by them
@@ -1660,6 +1841,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, customer could not return a space that they have purchased");
                 }
 
                 // Failure case - should not be able to return a space for a conference that does not exist
@@ -1671,6 +1853,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, conference does not exist");
                 }
 
                 // Failure case - should not be able to return a space with index negative
@@ -1682,6 +1865,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, negative index");
                 }
 
                 // Failure case - should not be able to return a space with index boundary out of range
@@ -1693,6 +1877,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, boundary out of range index");
                 }
 
                 // Failure case - should not be able to return a space with index out of range
@@ -1704,27 +1889,55 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, out of range index");
                 }
+
+                // Failure case - null conference
+                try
+                {
+                    carPark.ReturnSpace(null, 0, 1);
+                    Console.WriteLine("Test failed, did not throw when conference null");
+                }
+                catch (CarParkException ex)
+                {
+                    // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, conference null");
+                }
+
+                Console.WriteLine();
                 #endregion
                 
                 #region CheckAvailability tests
+                Console.WriteLine("CheckAvailability testes");
 
                 // Expect there to be x spaces available in Conference 1
                 if (carPark.CheckAvailability("Conference 1") != 6)
                 {
-                    Console.WriteLine("Test failed, number of free spaces should be 6");
+                    Console.WriteLine("Test failed, number of free spaces in Conference 1 should be 6");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, number of free spaces in Conference 1 is currently 6");
                 }
 
                 // Expect there to be y spaces available in Conference 2
                 if (carPark.CheckAvailability("Conference 2") != 8)
                 {
-                    Console.WriteLine("Test failed, number of free spaces should be 8");
+                    Console.WriteLine("Test failed, number of free spaces in Conference 2 should be 8");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, number of free spaces in Conference 2 is currently 8");
                 }
 
                 // Expect there to be z spaces available in Conference 3
                 if (carPark.CheckAvailability("Conference 3") != 7)
                 {
-                    Console.WriteLine("Test failed, number of free spaces should be 7");
+                    Console.WriteLine("Test failed, number of free spaces in Conference 3 should be 7");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, number of free spaces in Conference 3 is currently 7");
                 }
 
                 // Failure case - conference does not exist
@@ -1736,16 +1949,35 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, conference does not exist");
                 }
 
+                // Failure case - null conference
+                try
+                {
+                    carPark.CheckAvailability(null);
+                    Console.WriteLine("Test failed, did not throw when conference null");
+                }
+                catch (CarParkException ex)
+                {
+                    // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, conference null");
+                }
+
+                Console.WriteLine();
                 #endregion
 
                 #region CheckCustomer tests
+                Console.WriteLine("Check Customer tests");
 
                 // Conference 1 - Space 0 - no customer
                 if (carPark.CheckCustomer("Conference 1", 0) != 0)
                 {
                     Console.WriteLine("Test failed, space 0 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 1, space 0 is not assigned to any customer");
                 }
 
                 // Conference 1 - Space 1 - customer 1
@@ -1753,11 +1985,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, space 1 should be assigned to customer 1");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 1, space 1 is assigned to customer 1");
+                }
 
                 // Conference 1 - Space 2 - customer 1
                 if (carPark.CheckCustomer("Conference 1", 2) != 1)
                 {
                     Console.WriteLine("Test failed, space 2 should be assigned to customer 1");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 1, space 2 is assigned to customer 1");
                 }
 
                 // Conference 1 - Space 3 - no customer
@@ -1765,11 +2005,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, space 3 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 1, space 3 is not assigned to any customer");
+                }
 
                 // Conference 1 - Space 4 - no customer
                 if (carPark.CheckCustomer("Conference 1", 4) != 1)
                 {
                     Console.WriteLine("Test failed, space 4 should be assigned to customer 1");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 1, space 4 is assigned to customer 1");
                 }
 
                 // Conference 1 - Space 5 - no customer
@@ -1777,11 +2025,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, space 5 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 1, space 5 is not assigned to any customer");
+                }
 
                 // Conference 1 - Space 6 - no customer
                 if (carPark.CheckCustomer("Conference 1", 6) != 0)
                 {
                     Console.WriteLine("Test failed, space 6 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 1, space 6 is not assigned to any customer");
                 }
 
                 // Conference 1 - Space 7 - no customer
@@ -1789,17 +2045,29 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, space 7 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 1, space 7 is not assigned to any customer");
+                }
 
                 // Conference 1 - Space 8 - no customer
                 if (carPark.CheckCustomer("Conference 1", 8) != 0)
                 {
                     Console.WriteLine("Test failed, space 8 should not be assigned to any customer");
                 }
-                
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 1, space 8 is not assigned to any customer");
+                }
+
                 // Conference 1 - Space 9 - no customer
                 if (carPark.CheckCustomer("Conference 1", 9) != 0)
                 {
                     Console.WriteLine("Test failed, space 9 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 1, space 9 is not assigned to any customer");
                 }
 
                 // Conference 2 - Space 0 - no customer
@@ -1807,11 +2075,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, conference 2, space 0 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 2, space 0 is not assigned to any customer");
+                }
 
                 // Conference 2 - Space 1 - customer 1
                 if (carPark.CheckCustomer("Conference 2", 1) != 0)
                 {
                     Console.WriteLine("Test failed, conference 2, space 1 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 2, space 1 is not assigned to any customer");
                 }
 
                 // Conference 2 - Space 2 - customer 1
@@ -1819,11 +2095,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, conference 2, space 2 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 2, space 2 is not assigned to any customer");
+                }
 
                 // Conference 2 - Space 3 - no customer
                 if (carPark.CheckCustomer("Conference 2", 3) != 0)
                 {
                     Console.WriteLine("Test failed, conference 2, space 3 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 2, space 3 is not assigned to any customer");
                 }
 
                 // Conference 2 - Space 4 - no customer
@@ -1831,11 +2115,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, conference 2, space 4 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 2, space 4 is not assigned to any customer");
+                }
 
                 // Conference 2 - Space 5 - no customer
                 if (carPark.CheckCustomer("Conference 2", 5) != 0)
                 {
                     Console.WriteLine("Test failed, conference 2, space 5 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 2, space 5 is not assigned to any customer");
                 }
 
                 // Conference 2 - Space 6 - no customer
@@ -1843,11 +2135,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, conference 2, space 6 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 2, space 6 is not assigned to any customer");
+                }
 
                 // Conference 2 - Space 7 - no customer
                 if (carPark.CheckCustomer("Conference 2", 7) != 0)
                 {
                     Console.WriteLine("Test failed, conference 2, space 7 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 2, space 7 is not assigned to any customer");
                 }
 
                 // Conference 2 - Space 8 - no customer
@@ -1855,11 +2155,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, conference 2, space 8 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 2, space 8 is not assigned to any customer");
+                }
 
                 // Conference 2 - Space 9 - no customer
                 if (carPark.CheckCustomer("Conference 2", 9) != 0)
                 {
                     Console.WriteLine("Test failed, conference 2, space 9 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 2, space 9 is not assigned to any customer");
                 }
 
                 // Conference 3 - Space 0 - no customer
@@ -1867,11 +2175,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, Conference 3, space 0 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 3, space 0 is not assigned to any customer");
+                }
 
                 // Conference 3 - Space 1 - customer 1
                 if (carPark.CheckCustomer("Conference 3", 1) != 0)
                 {
                     Console.WriteLine("Test failed, Conference 3, space 1 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 3, space 1 is not assigned to any customer");
                 }
 
                 // Conference 3 - Space 2 - customer 1
@@ -1879,11 +2195,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, Conference 3, space 2 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 3, space 2 is not assigned to any customer");
+                }
 
                 // Conference 3 - Space 3 - no customer
                 if (carPark.CheckCustomer("Conference 3", 3) != 0)
                 {
                     Console.WriteLine("Test failed, Conference 3, space 3 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 3, space 3 is not assigned to any customer");
                 }
 
                 // Conference 3 - Space 4 - no customer
@@ -1891,11 +2215,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, Conference 3, space 4 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 3, space 4 is not assigned to any customer");
+                }
 
                 // Conference 3 - Space 5 - no customer
                 if (carPark.CheckCustomer("Conference 3", 5) != 0)
                 {
                     Console.WriteLine("Test failed, Conference 3, space 5 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 3, space 5 is not assigned to any customer");
                 }
 
                 // Conference 3 - Space 6 - no customer
@@ -1903,11 +2235,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, Conference 3, space 6 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 3, space 6 is not assigned to any customer");
+                }
 
                 // Conference 3 - Space 7 - no customer
                 if (carPark.CheckCustomer("Conference 3", 7) != 0)
                 {
                     Console.WriteLine("Test failed, Conference 3, space 7 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 3, space 7 is not assigned to any customer");
                 }
 
                 // Conference 3 - Space 8 - no customer
@@ -1915,11 +2255,19 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, Conference 3, space 8 should not be assigned to any customer");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 3, space 8 is not assigned to any customer");
+                }
 
                 // Conference 3 - Space 9 - no customer
                 if (carPark.CheckCustomer("Conference 3", 9) != 0)
                 {
                     Console.WriteLine("Test failed, Conference 3, space 9 should not be assigned to any customer");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, conference 3, space 9 is not assigned to any customer");
                 }
 
                 // Failure case - conference not found
@@ -1931,6 +2279,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, conference does not exist");
                 }
 
                 // Failure case - index out of range negative
@@ -1942,6 +2291,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, negative index");
                 }
 
                 // Failure case - index out of range boundary greater than
@@ -1953,6 +2303,7 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, boundary out of range index");
                 }
 
                 // Failure case - index out of range greater than
@@ -1964,10 +2315,26 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, out of range index");
                 }
+
+                // Failure case - null conference
+                try
+                {
+                    carPark.CheckCustomer(null, 1);
+                    Console.WriteLine("Test failed, did not throw when conference null");
+                }
+                catch (CarParkException ex)
+                {
+                    // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, conference null");
+                }
+
+                Console.WriteLine();
                 #endregion
 
                 #region Trying to reserve too many spaces test
+                Console.WriteLine("Trying to reserve too many spaces test");
 
                 // Reserve all of the free spaces in conference 2 (add 2 for number of premium spaces)
                 for (var i = 4; i < MaxSize - CannotBeReserved + 2; i++)
@@ -1984,12 +2351,14 @@ namespace ASETAssignment
                 catch (CarParkException ex)
                 {
                     // Expect the exception
+                    Console.WriteLine("Test Passed, CarParkException thrown, tried to reserve too many spaces");
                 }
 
+                Console.WriteLine();
                 #endregion
 
                 #region CancelReservations tests
-
+                Console.WriteLine("CancelReservations tests");
                 // Cancel the reservations
                 carPark.CancelReservations();
 
@@ -1998,14 +2367,24 @@ namespace ASETAssignment
                 {
                     Console.WriteLine("Test failed, space reservation was cancelled prematurely");
                 }
+                else
+                {
+                    Console.WriteLine("Test Passed, space reservations were not cancelled as it they were made less than 10 seconds ago");
+                }
 
                 // Sleep for 11 seconds then retry
+                Console.WriteLine("Sleeping for eleven seconds");
                 Thread.Sleep(11000);
+                Console.WriteLine("Awoken");
                 carPark.CancelReservations();
 
                 if (carPark.CheckCustomer("Conference 2", 4) == 1)
                 {
                     Console.WriteLine("Test failed, space reservation was not cancelled");
+                }
+                else
+                {
+                    Console.WriteLine("Test Passed, space reservations were cancelled after waiting more than 10 seconds");
                 }
 
                 #endregion
