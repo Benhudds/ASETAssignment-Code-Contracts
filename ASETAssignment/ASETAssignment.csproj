@@ -87,12 +87,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CarPark\CarPark.cs" />
-    <Compile Include="CarPark\CarParkContracts.cs" />
-    <Compile Include="CarPark\Conference.cs" />
-    <Compile Include="CarPark\ICarPark.cs" />
-    <Compile Include="CarPark\Space.cs" />
-    <Compile Include="CarPark\CarParkException.cs" />
+    <Compile Include="CarParkNamespace\CarPark.cs" />
+    <Compile Include="CarParkNamespace\CarParkContracts.cs" />
+    <Compile Include="CarParkNamespace\Conference.cs" />
+    <Compile Include="CarParkNamespace\ICarPark.cs" />
+    <Compile Include="CarParkNamespace\Space.cs" />
+    <Compile Include="CarParkNamespace\CarParkException.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
