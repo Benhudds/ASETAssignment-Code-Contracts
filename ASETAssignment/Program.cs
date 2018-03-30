@@ -10,20 +10,12 @@ namespace ASETAssignment
     /// Abstract Class for a car park
     /// Uses the CarParkContracts class
     /// This implementation is no different to an interface functionally, tested Code Contracts with both
+    /// Properties included so that Code Contracts can access state.
+    /// Kind of against the point of an interface, we shouldn't care how it is implementated, but required nonetheless.
     /// </summary>
     [ContractClass(typeof(CarParkContracts))]
     public abstract class ICarPark
     {
-        /*
-
-
-            Properties included so that Code Contracts can access state.
-
-            Kind of against the point of an interface, we shouldn't care how it is implementated, but required nonetheless.
-
-
-        */
-
         /// <summary>
         /// Maximum size of the car park
         /// </summary>
@@ -61,8 +53,8 @@ namespace ASETAssignment
         /// Allow a customer to return a specific space previously reserved by them
         /// </summary>
         /// <param name="conferenceKey">Conference name lookup key</param>
-        /// <param name="index"></param>
-        /// <param name="customer"></param>
+        /// <param name="index">Index of the space</param>
+        /// <param name="customer">Id of the customer</param>
         public abstract void ReturnSpace(string conferenceKey, int index, int customer);
 
         /// <summary>
@@ -84,7 +76,7 @@ namespace ASETAssignment
         /// </summary>
         /// <param name="conferenceKey">Conference name lookup key</param>
         /// <param name="index">Index of the given space</param>
-        /// <returns></returns>
+        /// <returns>The integer id of the customer associated with this space</returns>
         public abstract int CheckCustomer(string conferenceKey, int index);
 
 
@@ -112,11 +104,22 @@ namespace ASETAssignment
 
 
         /// <summary>
+        ///    Okay, here is where stuff gets weird.
+        ///    One flaw encountered with code contracts is the inability to use Contract.OldValue in the second level of a quantifier.
+        ///    Both the below lines compile, however, whilst the first line works correctly, the second does not as Contract.OldValue does not it, returns null (Exists not tested).
+        ///             Contract.Ensures(Contract.ForAll(0, Contract.OldValue(Conferences).Count, i => true));
+        ///             Contract.Ensures(Contract.ForAll(0, Contract.OldValue(Conferences).Count, i => Contract.ForAll(0, Contract.OldValue(Conferences).ToList()[i].Value.Spaces.Length, j => true)));
+        ///    One solution would be to rework the structure so that these types of contracts are not required, but making the implementation more complex because the specification tools cannot cope is insane.
+        ///    A nice solution to this problem is to separate the contracts into normal code(for loops) in separate Pure methods.These method results can then be used instead of the predicates in the post conditions.
+        ///    Unfortunately, Code Contracts abysmal interface/abstract class implementation does not allow use of private methods in contracts in the contract class; every method used must be declared in the interface/abstract class.
+        ///    As such, the below method has been included here.
+        ///    This has all been detailed again in the specific method headers and calls.
+        /// 
         /// A method to check the post conditions of the cancel reservations method because they are too complex for Code Contracts
         /// </summary>
         /// <param name="current">The post state of the Conferences</param>
         /// <param name="old">The OldValue of the Conferences</param>
-        /// <returns></returns>
+        /// <returns>True if post conditions pass, false otherwise</returns>
         [Pure]
         public abstract bool CancelReservationPostConditions(IReadOnlyDictionary<string, Conference> current,
             IReadOnlyDictionary<string, Conference> old);
@@ -419,6 +422,10 @@ namespace ASETAssignment
         public override int CheckAvailability(string conferenceKey)
         {
             #region PreConditions
+            // Required for static analysis
+            Contract.Requires<CarParkException>(conferenceKey != null, "Conference key null");
+            Contract.Requires<CarParkException>(Conferences.ContainsKey(conferenceKey), "Conference not found");
+            Contract.Requires<CarParkException>(Conferences[conferenceKey] != null);
             #endregion
 
             #region PostConditions
@@ -466,6 +473,13 @@ namespace ASETAssignment
         public override int CheckCustomer(string conferenceKey, int index)
         {
             #region PreConditions
+            // Required for static analysis
+            Contract.Requires<CarParkException>(conferenceKey != null, "Conference key null");
+            Contract.Requires<CarParkException>(Conferences.ContainsKey(conferenceKey), "Conference does not exist");
+            Contract.Requires<NullReferenceException>(Conferences[conferenceKey] != null);
+            Contract.Requires<CarParkException>(index >= 0, "index < 0");
+            Contract.Requires<CarParkException>(index < Conferences[conferenceKey].Spaces.Length, "Index greater than amount of spaces");
+            Contract.Requires<NullReferenceException>(Conferences[conferenceKey].Spaces[index] != null);
             #endregion
 
             #region PostConditions
@@ -507,7 +521,7 @@ namespace ASETAssignment
             #endregion
 
             #endregion
-
+            
             return default(int);
         }
 
@@ -523,15 +537,27 @@ namespace ASETAssignment
         */
 
         /// <summary>
-        /// 
+        /// Contract method for the method to check cancel reservations post conditions
         /// </summary>
-        /// <param name="current"></param>
-        /// <param name="old"></param>
-        /// <returns></returns>
+        /// <param name="current">The conferenes pots execution</param>
+        /// <param name="old">The conferences pre execution</param>
+        /// <returns>True if post conditions pass, false otherwise</returns>
         [Pure]
         public override bool CancelReservationPostConditions(IReadOnlyDictionary<string, Conference> current,
             IReadOnlyDictionary<string, Conference> old)
         {
+            #region PreConditions
+            // Required for static analysis
+            Contract.Requires(current != null);
+            Contract.Requires(old != null);
+            Contract.Requires(current.Values.All(v => v != null));
+            Contract.Requires(current.Values.All(v => v.Spaces != null));
+            Contract.Requires(current.Values.All(v => v.Spaces.All(s => s != null)));
+            Contract.Requires(old.Values.All(v => v != null));
+            Contract.Requires(old.Values.All(v => v.Spaces != null));
+            Contract.Requires(old.Values.All(v => v.Spaces.All(s => s != null)));
+            #endregion
+
 
             // Both of these contracts should check that all conferences are equal, if OldValue did not return null
 
@@ -691,7 +717,6 @@ namespace ASETAssignment
 
     /// <summary>
     /// A class representing a single conference (day)
-    /// No contracts here, CarPark manages them all
     /// </summary>
     public class Conference
     {
@@ -705,19 +730,52 @@ namespace ASETAssignment
         /// </summary>
         private readonly int premiumSpaces;
 
+        private readonly Space[] spaces;
+
         /// <summary>
         /// The spaces
         /// </summary>
-        public Space[] Spaces { get; }
+        public Space[] Spaces {
+            get
+            {
+                Contract.Ensures(spaces != null);
+                return spaces;
+            } }
+
+        /// <summary>
+        /// Contracts Invariant method
+        /// </summary>
+        [ContractInvariantMethod]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Required for code contracts.")]
+        private void ObjectInvariant()
+        {
+            // Spaces must not be null
+            Contract.Invariant(Spaces != null);
+        }
+
 
         /// <summary>
         /// The constructor
         /// </summary>
         /// <param name="maxSize">Maximum size of the car park</param>
+        /// <param name="cannotBeReserved">Number of spaces that cannot be reserved</param>
         /// <param name="notInUseSpaces">The number of space that are NotInUse</param>
         /// <param name="premiumSpaces">The number of spaces that are Premium</param>
-        public Conference(int maxSize, int notInUseSpaces, int premiumSpaces)
+        public Conference(int maxSize, int cannotBeReserved, int notInUseSpaces, int premiumSpaces)
         {
+            #region PreConditions
+            // Maxsize must be reasonable
+            Contract.Requires(0 <= maxSize);
+            Contract.Requires(0 <= notInUseSpaces);
+            Contract.Requires(0 <= premiumSpaces);
+            Contract.Requires(notInUseSpaces + premiumSpaces <= maxSize - cannotBeReserved);
+            #endregion
+
+            #region PostConditions
+            // Required for static analysis
+            Contract.Ensures(Spaces != null);
+            #endregion
+
             #region Implementation
 
             // Set the data members
@@ -725,11 +783,12 @@ namespace ASETAssignment
             this.premiumSpaces = premiumSpaces;
 
             // Create the array of spaces
-            Spaces = new Space[maxSize];
+            spaces = new Space[maxSize];
 
             // Create the not in use spaces
             for (var i = 0; i < notInUseSpaces; i++)
             {
+                Contract.Assume(i < Spaces.Length);
                 Spaces[i] = new Space()
                 {
                     State = SpaceEnumeration.NotInUse
@@ -739,6 +798,7 @@ namespace ASETAssignment
             // Create the premium spaces
             for (var i = notInUseSpaces; i < notInUseSpaces + premiumSpaces; i++)
             {
+                Contract.Assume(i < Spaces.Length);
                 Spaces[i] = new Space()
                 {
                     State = SpaceEnumeration.Free,
@@ -749,6 +809,7 @@ namespace ASETAssignment
             // Create the free spaces
             for (var i = notInUseSpaces + premiumSpaces; i < maxSize; i++)
             {
+                Contract.Assert(i < Spaces.Length);
                 Spaces[i] = new Space()
                 {
                     State = SpaceEnumeration.Free
@@ -866,6 +927,9 @@ namespace ASETAssignment
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Required for code contracts.")]
         private void ObjectInvariant()
         {
+            Contract.Invariant(conferences != null);
+            Contract.Invariant(Conferences != null);
+
             // The spaces arrays must always keep the same length
             Contract.Invariant(Conferences.Values.All(c => c.Spaces.Length == MaxSize));
 
@@ -894,6 +958,12 @@ namespace ASETAssignment
 
             // Conference names must not be null
             Contract.Requires(conferenceNames != null);
+            
+            // NotInUseSpaces must not be null
+            Contract.Requires(notInUseSpaces != null);
+            
+            // PremiumSpaces must not be null
+            Contract.Requires(premiumSpaces != null);
 
             // Conference names must not be empty
             Contract.Requires(conferenceNames.Any());
@@ -932,7 +1002,7 @@ namespace ASETAssignment
             Contract.Ensures(Contract.ForAll(0, premiumSpaces.Count, i =>
                                                                      conferences[conferenceNames[i]].Spaces.Count(s => s.Premium) == premiumSpaces[i]));
             #endregion
-
+            
             #region Implementation
 
             // Initialise the members
@@ -946,7 +1016,7 @@ namespace ASETAssignment
             var enumerable = conferenceNames as string[] ?? conferenceNames.ToArray();
             for (var i = 0; i < enumerable.Length; i++)
             {
-                conferences.Add(enumerable[i], new Conference(maxSize, notInUseSpaces[i], premiumSpaces[i]));
+                conferences.Add(enumerable[i], new Conference(maxSize, cannotBeReserved, notInUseSpaces[i], premiumSpaces[i]));
             }
             #endregion
         }
@@ -961,7 +1031,7 @@ namespace ASETAssignment
         /// </summary>
         /// <param name="current">The dictionary of conferences after method completion</param>
         /// <param name="old">The dictionary of conferences before original invocation</param>
-        /// <returns></returns>
+        /// <returns>True if the post conditions are valid, false otherwise</returns>
         [Pure]
         public override bool CancelReservationPostConditions(IReadOnlyDictionary<string, Conference> current, IReadOnlyDictionary<string, Conference> old)
         {
@@ -977,8 +1047,16 @@ namespace ASETAssignment
 
             foreach (var c in current)
             {
-                for (var i = 0; i < current[c.Key].Spaces.Length; i++)
+                Contract.Assume(c.Value != null);
+                Contract.Assert(c.Value.Spaces != null);
+                for (var i = 0; i < c.Value.Spaces.Length; i++)
                 {
+                    Contract.Assume(old[c.Key] != null);
+                    Contract.Assume(old[c.Key].Spaces != null);
+                    Contract.Assume(i < old[c.Key].Spaces.Length);
+                    Contract.Assert(i < c.Value.Spaces.Length);
+                    Contract.Assume(old[c.Key].Spaces[i] != null);
+
                     if (!(old[c.Key].Spaces[i].State == SpaceEnumeration.Free ||
                           old[c.Key].Spaces[i].State == SpaceEnumeration.Purchased ||
                           old[c.Key].Spaces[i].State == SpaceEnumeration.NotInUse) ||
@@ -1004,8 +1082,17 @@ namespace ASETAssignment
 
             foreach (var c in current)
             {
-                for (var i = 0; i < current[c.Key].Spaces.Length; i++)
+                Contract.Assume(c.Value != null);
+                Contract.Assert(c.Value.Spaces != null);
+                for (var i = 0; i < c.Value.Spaces.Length; i++)
                 {
+                    Contract.Assume(old[c.Key] != null);
+                    Contract.Assume(old[c.Key].Spaces != null);
+                    Contract.Assume(i < old[c.Key].Spaces.Length);
+                    Contract.Assert(i < c.Value.Spaces.Length);
+                    Contract.Assume(old[c.Key].Spaces[i] != null);
+                    Contract.Assume(c.Value.Spaces[i] != null);
+
                     if (!(old[c.Key].Spaces[i].State == SpaceEnumeration.Reserved &&
                           old[c.Key].Spaces[i].ReservedAt < DateTime.Now.AddSeconds(-10)) ||
                         (c.Value.Spaces[i].State == SpaceEnumeration.Free &&
@@ -1032,8 +1119,17 @@ namespace ASETAssignment
 
             foreach (var c in current)
             {
-                for (var i = 0; i < current[c.Key].Spaces.Length; i++)
+                Contract.Assume(c.Value != null);
+                Contract.Assert(c.Value.Spaces != null);
+                for (var i = 0; i < c.Value.Spaces.Length; i++)
                 {
+                    Contract.Assume(old[c.Key] != null);
+                    Contract.Assume(old[c.Key].Spaces != null);
+                    Contract.Assume(i < old[c.Key].Spaces.Length);
+                    Contract.Assert(i < c.Value.Spaces.Length);
+                    Contract.Assume(old[c.Key].Spaces[i] != null);
+                    Contract.Assume(c.Value.Spaces[i] != null);
+
                     if (!(c.Value.Spaces[i].State == SpaceEnumeration.Reserved &&
                           c.Value.Spaces[i].ReservedAt >= DateTime.Now.AddSeconds(-10)) ||
                         c.Value.Spaces[i].Equals(old[c.Key].Spaces[i]))
@@ -1170,8 +1266,8 @@ namespace ASETAssignment
         /// Allow a customer to return a specific space previously reserved by them
         /// </summary>
         /// <param name="conferenceKey">Conference name lookup key</param>
-        /// <param name="index"></param>
-        /// <param name="customer"></param>
+        /// <param name="index">The index of the space</param>
+        /// <param name="customer">The customer id</param>
         public override void ReturnSpace(string conferenceKey, int index, int customer)
         {
             #region Implementation
@@ -1229,8 +1325,13 @@ namespace ASETAssignment
 
             foreach (var conference in conferences)
             {
+                Contract.Assume(conference.Value != null);
+                Contract.Assert(conference.Value.Spaces != null);
+
                 foreach (var space in conference.Value.Spaces)
                 {
+                    Contract.Assume(space != null);
+
                     if (space.State == SpaceEnumeration.Reserved && space.ReservedAt < DateTime.Now.AddSeconds(-10))
                     {
                         space.State = SpaceEnumeration.Free;
@@ -1263,6 +1364,8 @@ namespace ASETAssignment
                 throw new CarParkException("Conference does not exist");
             }
 
+            Contract.Assume(conferences[conferenceKey] != null);
+            Contract.Assert(conferences[conferenceKey].Spaces != null);
             return conferences[conferenceKey].Spaces.Count(s => s.State == SpaceEnumeration.Free);
 
             #endregion
@@ -1274,7 +1377,7 @@ namespace ASETAssignment
         /// </summary>
         /// <param name="conferenceKey">Conference name lookup key</param>
         /// <param name="index">Index of the given space</param>
-        /// <returns></returns>
+        /// <returns>The integer customer ID this space belongs to</returns>
         [Pure]
         public override int CheckCustomer(string conferenceKey, int index)
         {
@@ -1296,6 +1399,10 @@ namespace ASETAssignment
                 throw new CarParkException("Conference does not exist");
             }
 
+            Contract.Assume(conferences[conferenceKey] != null);
+            Contract.Assert(conferences[conferenceKey].Spaces != null);
+            Contract.Assume(index < conferences[conferenceKey].Spaces.Length);
+            Contract.Assume(conferences[conferenceKey].Spaces[index] != null);
             return conferences[conferenceKey].Spaces[index].CustomerId;
 
             #endregion
@@ -1378,6 +1485,28 @@ namespace ASETAssignment
                 }
             }
 
+            // Catch not in use spaces null
+            try
+            {
+                carPark = new CarPark(MaxSize, CannotBeReserved, conferences, null, premiumSpaces);
+                Console.WriteLine("Test Failed, Contract did not throw exception when not in use spaces null");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Test Passed, Contract threw exception when not in use spaces null");
+            }
+
+            // Catch not in use spaces null
+            try
+            {
+                carPark = new CarPark(MaxSize, CannotBeReserved, conferences, notInUseSpaces, null);
+                Console.WriteLine("Test Failed, Contract did not throw exception when premium spaces null");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Test Passed, Contract threw exception when premium spaces null");
+            }
+            
             // Catch no conferences setup
             try
             {
